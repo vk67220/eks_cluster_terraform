@@ -1,0 +1,56 @@
+name: Terraform EKS Cluster
+
+on:
+  workflow_dispatch:
+    inputs:
+      target_env:
+        description: "Select environment"
+        required: true
+        type: choice
+        options:
+          - dev
+          - production
+
+jobs:
+  terraform:
+    name: Create EKS Cluster
+    runs-on: ubuntu-latest
+
+    # 🔐 REQUIRED for environment secrets
+    environment: ${{ inputs.target_env }}
+
+    env:
+      # ✅ Repository secrets (credentials)
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+      # ✅ Environment secrets (config)
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+      CLUSTER_NAME: ${{ secrets.CLUSTER_NAME }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.6
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Validate
+        run: terraform validate
+
+      - name: Terraform Plan
+        run: |
+          terraform plan \
+            -var="aws_region=$AWS_REGION" \
+            -var="cluster_name=$CLUSTER_NAME"
+
+      - name: Terraform Apply
+        run: |
+          terraform apply -auto-approve \
+            -var="aws_region=$AWS_REGION" \
+            -var="cluster_name=$CLUSTER_NAME"
