@@ -1,0 +1,39 @@
+name: Creation of S3 Bucket for Terraform Backend
+
+on:
+  workflow_dispatch:
+
+jobs:
+  create-s3-bucket:
+    runs-on: ubuntu-latest
+
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+      AWS_REGION: us-east-1
+
+    steps:
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: us-east-1
+
+      - name: Create S3 Bucket (idempotent)
+        run: |
+          aws s3api head-bucket --bucket my-eks-terraform-state-us-east-1 2>/dev/null \
+          || aws s3api create-bucket \
+            --bucket my-eks-terraform-state-us-east-1 \
+            --region us-east-1
+
+      - name: Enable Versioning (recommended)
+        run: |
+          aws s3api put-bucket-versioning \
+            --bucket my-eks-terraform-state-us-east-1 \
+            --versioning-configuration Status=Enabled
+
+      - name: Verify Bucket
+        run: |
+          aws s3api get-bucket-location \
+            --bucket my-eks-terraform-state-us-east-1
