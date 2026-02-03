@@ -7,7 +7,9 @@ on:
         description: "Select environment"
         required: true
         type: choice
-        options: [dev, production]
+        options:
+          - dev
+          - production
 
 jobs:
   terraform:
@@ -21,20 +23,22 @@ jobs:
       CLUSTER_NAME: ${{ secrets.CLUSTER_NAME }}
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - uses: hashicorp/setup-terraform@v3
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.6.6
 
-      - name: Terraform Init
+      - name: Terraform Init (Remote Backend)
         run: |
-          terraform init
-          - backend-config="bucket=my-eks-terraform-state" \
-          - backend-config="key=$CLUSTER_NAME/terraform.tfstate" \
-          - backend-config="region=$AWS_REGION" \
-          - backend-config="dynamodb_table=terraform-locks" \
-          - backend-config="encrypt=true"
+          terraform init \
+            -backend-config="bucket=my-eks-terraform-state" \
+            -backend-config="key=eks/${CLUSTER_NAME}/terraform.tfstate" \
+            -backend-config="region=${AWS_REGION}" \
+            -backend-config="dynamodb_table=terraform-locks" \
+            -backend-config="encrypt=true"
 
       - name: Terraform Validate
         run: terraform validate
@@ -42,14 +46,14 @@ jobs:
       - name: Terraform Plan
         run: |
           terraform plan \
-            -var="aws_region=$AWS_REGION" \
-            -var="cluster_name=$CLUSTER_NAME"
+            -var="aws_region=${AWS_REGION}" \
+            -var="cluster_name=${CLUSTER_NAME}"
 
       - name: Terraform Apply
         run: |
           terraform apply -auto-approve \
-            -var="aws_region=$AWS_REGION" \
-            -var="cluster_name=$CLUSTER_NAME"
+            -var="aws_region=${AWS_REGION}" \
+            -var="cluster_name=${CLUSTER_NAME}"
 
       - name: Configure AWS
         uses: aws-actions/configure-aws-credentials@v4
@@ -61,8 +65,12 @@ jobs:
       - name: Update kubeconfig
         run: |
           aws eks update-kubeconfig \
-            --region $AWS_REGION \
-            --name $CLUSTER_NAME
+            --region ${AWS_REGION} \
+            --name ${CLUSTER_NAME}
 
       - name: Verify nodes
         run: kubectl get nodes
+      - name: Verify cluster
+        run: |
+          aws eks describe-cluster --name ${CLUSTER_NAME} \
+            --query "cluster.status"
