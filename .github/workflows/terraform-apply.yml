@@ -28,7 +28,13 @@ jobs:
           terraform_version: 1.6.6
 
       - name: Terraform Init
-        run: terraform init
+        run: |
+          terraform init
+          - backend-config="bucket=my-eks-terraform-state" \
+          - backend-config="key=$CLUSTER_NAME/terraform.tfstate" \
+          - backend-config="region=$AWS_REGION" \
+          - backend-config="dynamodb_table=terraform-locks" \
+          - backend-config="encrypt=true"
 
       - name: Terraform Validate
         run: terraform validate
