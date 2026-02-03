@@ -70,7 +70,7 @@ jobs:
 
       - name: Delete Terraform State File
         run: |
-          aws s3 rm s3://my-eks-terraform-state/eks/${CLUSTER_NAME}/terraform.tfstate
+          aws s3 rm s3://my-eks-terraform-state-us-east-1/eks/${CLUSTER_NAME}/terraform.tfstate
       - name: Delete S3 Bucket (if empty)
         run: |
-          aws s3 rb s3://my-eks-terraform-state --force || echo "Bucket not empty or does not exist"  
+          aws s3 rb s3://my-eks-terraform-state-us-east-1 --force || echo "Bucket not empty or does not exist"  
