@@ -31,6 +31,8 @@ jobs:
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.6.6
+      - name: clean cache files
+        run: rm -rf .terraform 
 
       - name: Terraform Init (Remote Backend)
         run: |
