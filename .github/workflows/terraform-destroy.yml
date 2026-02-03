@@ -31,7 +31,7 @@ jobs:
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.6.6
-          
+
       - name: clean cache files
         run: rm -rf .terraform 
 
@@ -40,7 +40,7 @@ jobs:
           terraform init \
             -backend-config="bucket=my-eks-terraform-state-us-east-1" \
             -backend-config="key=eks/${CLUSTER_NAME}/terraform.tfstate"
-            -backend-config="region=${AWS_REGION}" \ 
+            -backend-config="region=us-east-1" \ 
             -backend-config="dynamodb_table=terraform-locks" \
             -backend-config="encrypt=true"
 
