@@ -69,8 +69,10 @@ jobs:
           || echo "Cluster not found – deletion successful"
 
       - name: Delete Terraform State File
+        if: inputs.target_env == 'dev'
         run: |
           aws s3 rm s3://my-eks-terraform-state-us-east-1/eks/${CLUSTER_NAME}/terraform.tfstate
-      - name: Delete S3 Bucket (if empty)
-        run: |
-          aws s3 rb s3://my-eks-terraform-state-us-east-1 --force || echo "Bucket not empty or does not exist"  
+          || echo "State file not found or already deleted"
+      # - name: Delete S3 Bucket (if empty)
+      #  run: |
+      #   aws s3 rb s3://my-eks-terraform-state-us-east-1 --force || echo "Bucket not empty or does not exist"  
