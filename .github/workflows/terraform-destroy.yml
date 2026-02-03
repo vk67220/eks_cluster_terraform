@@ -35,9 +35,9 @@ jobs:
       - name: Terraform Init (Remote Backend)
         run: |
           terraform init \
-            -backend-config="bucket=my-eks-terraform-state" \
-            -backend-config="key=eks/${CLUSTER_NAME}/terraform.tfstate" 
-            -backend-config="region=${TF_STATE_REGION}" \
+            -backend-config="bucket=my-eks-terraform-state-us-east-1" \
+            -backend-config="key=eks/${CLUSTER_NAME}/terraform.tfstate"
+            -backend-config="region=${AWS_REGION}" \ 
             -backend-config="dynamodb_table=terraform-locks" \
             -backend-config="encrypt=true"
 
