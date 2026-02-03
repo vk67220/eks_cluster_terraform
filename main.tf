@@ -44,7 +44,7 @@ module "eks" {
 
   eks_managed_node_groups = {
     default = {
-      instance_types = ["t3.medium"]
+      instance_types = ["m7i-flex.large"]
       min_size       = 2
       desired_size   = 2
       max_size       = 2
