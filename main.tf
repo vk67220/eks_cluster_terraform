@@ -1,18 +1,18 @@
 ##################################
-# VPC Module
-#################################
+# VPC
+##################################
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
   version = "~> 5.0"
 
-  name = "eks-vpc"
+  name = "${var.cluster_name}-vpc"
   cidr = "10.0.0.0/16"
 
   azs             = ["us-east-1a", "us-east-1b"]
   public_subnets  = ["10.0.1.0/24", "10.0.2.0/24"]
   private_subnets = ["10.0.3.0/24", "10.0.4.0/24"]
 
-  map_public_ip_on_launch = true # ✅ ADD THIS (FOR PRACTICE) 
+  map_public_ip_on_launch = true
 
   enable_nat_gateway = true
   single_nat_gateway = true
@@ -27,7 +27,7 @@ module "vpc" {
 }
 
 ##################################
-# EKS Module
+# EKS
 ##################################
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
@@ -37,14 +37,14 @@ module "eks" {
   cluster_version = "1.30"
 
   vpc_id     = module.vpc.vpc_id
-  subnet_ids = module.vpc.public_subnets # ✅ PRACTICE MODE
+  subnet_ids = module.vpc.public_subnets
 
   cluster_endpoint_public_access  = true
   cluster_endpoint_private_access = false
 
   eks_managed_node_groups = {
     default = {
-      instance_types = ["m7i-flex.large"]
+      instance_types = ["t3.medium"]
       min_size       = 2
       desired_size   = 2
       max_size       = 2
@@ -58,7 +58,6 @@ module "eks" {
       policy_associations = {
         admin = {
           policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
-
           access_scope = {
             type = "cluster"
           }
@@ -66,4 +65,6 @@ module "eks" {
       }
     }
   }
+
+  depends_on = [module.vpc]
 }

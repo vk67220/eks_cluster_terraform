@@ -1,47 +1,29 @@
-name: Terraform Destroy EKS Cluster
+name: Terraform Destroy EKS
 
 on:
   workflow_dispatch:
     inputs:
       target_env:
-        description: "Select environment to DESTROY"
+        description: "Environment to destroy"
         required: true
         type: choice
-        options:
-          - dev
-          - production
+        options: [dev, production]
 
 jobs:
-  terraform-destroy:
-    name: Destroy EKS Cluster
+  destroy:
     runs-on: ubuntu-latest
-
-    # 🔐 REQUIRED for environment secrets & approvals
     environment: ${{ inputs.target_env }}
 
     env:
-      # 🔑 Repository secrets
       AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
       AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-
-      # 🔐 Environment secrets
       AWS_REGION: ${{ secrets.AWS_REGION }}
       CLUSTER_NAME: ${{ secrets.CLUSTER_NAME }}
 
     steps:
-      - name: ⚠️ Warning
-        run: |
-          echo "########################################"
-          echo "DESTROYING Terraform infrastructure"
-          echo "Environment : ${{ inputs.target_env }}"
-          echo "Cluster     : $CLUSTER_NAME"
-          echo "########################################"
+      - uses: actions/checkout@v4
 
-      - name: Checkout code
-        uses: actions/checkout@v4
-
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+      - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.6.6
 
@@ -56,6 +38,6 @@ jobs:
 
       - name: Terraform Destroy
         run: |
-          terraform destroy -auto-approve \
+          terraform destroy -auto-approve -refresh=true \
             -var="aws_region=$AWS_REGION" \
             -var="cluster_name=$CLUSTER_NAME"
