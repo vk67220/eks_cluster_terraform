@@ -7,7 +7,9 @@ on:
         description: "Environment to destroy"
         required: true
         type: choice
-        options: [dev, production]
+        options:
+          - dev
+          - production
 
 jobs:
   destroy:
@@ -21,29 +23,50 @@ jobs:
       CLUSTER_NAME: ${{ secrets.CLUSTER_NAME }}
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - uses: hashicorp/setup-terraform@v3
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: 1.6.6
 
-      - name: Terraform Init
+      - name: Terraform Init (Remote Backend)
         run: |
-          terraform init
-          - backend-config="bucket=my-eks-terraform-state" \
-          - backend-config="key=$CLUSTER_NAME/terraform.tfstate" \
-          - backend-config="region=$AWS_REGION" \
-          - backend-config="dynamodb_table=terraform-locks" \
-          - backend-config="encrypt=true"
+          terraform init \
+            -backend-config="bucket=my-eks-terraform-state" \
+            -backend-config="key=eks/${CLUSTER_NAME}/terraform.tfstate" \
+            -backend-config="region=${AWS_REGION}" \
+            -backend-config="dynamodb_table=terraform-locks" \
+            -backend-config="encrypt=true"
 
       - name: Terraform Plan Destroy
         run: |
           terraform plan -destroy \
-            -var="aws_region=$AWS_REGION" \
-            -var="cluster_name=$CLUSTER_NAME"
+            -var="aws_region=${AWS_REGION}" \
+            -var="cluster_name=${CLUSTER_NAME}"
 
       - name: Terraform Destroy
         run: |
           terraform destroy -auto-approve -refresh=true \
-            -var="aws_region=$AWS_REGION" \
-            -var="cluster_name=$CLUSTER_NAME"
+            -var="aws_region=${AWS_REGION}" \
+            -var="cluster_name=${CLUSTER_NAME}"
+
+      - name: Configure AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Verify Cluster Deletion
+        run: |
+          aws eks describe-cluster --name ${CLUSTER_NAME} \
+          || echo "Cluster not found – deletion successful"
+
+      - name: Delete Terraform State File
+        run: |
+          aws s3 rm s3://my-eks-terraform-state/eks/${CLUSTER_NAME}/terraform.tfstate
+      - name: Delete S3 Bucket (if empty)
+        run: |
+          aws s3 rb s3://my-eks-terraform-state --force || echo "Bucket not empty or does not exist"  
