@@ -1,0 +1,66 @@
+name: Creation of S3 Bucket for Terraform Backend
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write     # 🔐 REQUIRED for OIDC
+
+jobs:
+  create-s3-bucket:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 🔐 OIDC Login (NO AWS KEYS)
+      - name: Configure AWS Credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::597918493080:role/github-oidc-selfhosted-role
+          aws-region: us-east-1
+
+      - name: Verify AWS Identity
+        run: aws sts get-caller-identity
+
+      - name: Create S3 Bucket (idempotent)
+        run: |
+          aws s3api head-bucket --bucket my-eks-terraform-state-us-east-1 2>/dev/null \
+          || aws s3api create-bucket \
+            --bucket my-eks-terraform-state-us-east-1 \
+            --region us-east-1
+
+      - name: Enable Versioning (recommended)
+        run: |
+          aws s3api put-bucket-versioning \
+            --bucket my-eks-terraform-state-us-east-1 \
+            --versioning-configuration Status=Enabled
+
+      - name: Verify Bucket
+        run: |
+          aws s3api get-bucket-location \
+            --bucket my-eks-terraform-state-us-east-1
+
+
+  create-dynamodb-table:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 🔐 OIDC Login Again (each job needs auth)
+      - name: Configure AWS Credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::597918493080:role/github-oidc-selfhosted-role
+          aws-region: us-east-1
+
+      - name: Create DynamoDB Table for Terraform Locks (idempotent)
+        run: |
+          aws dynamodb describe-table --table-name terraform-locks 2>/dev/null \
+          || aws dynamodb create-table \
+            --table-name terraform-locks \
+            --attribute-definitions AttributeName=LockID,AttributeType=S \
+            --key-schema AttributeName=LockID,KeyType=HASH \
+            --provisioned-throughput ReadCapacityUnits=5,WriteCapacityUnits=5
+
+      - name: Verify DynamoDB Table
+        run: |
+          aws dynamodb describe-table --table-name terraform-locks
