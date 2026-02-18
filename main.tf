@@ -64,6 +64,21 @@ module "eks" {
         }
       }
     }
+  
+
+  # GitHub OIDC Role (FIXES kubectl error)
+    github_actions = {
+      principal_arn = "arn:aws:iam::597918493080:role/github-oidc-selfhosted-role"
+
+      policy_associations = {
+        admin = {
+          policy_arn = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+          access_scope = {
+            type = "cluster"
+          }
+        }
+      }
+    }
   }
 
   depends_on = [module.vpc]
