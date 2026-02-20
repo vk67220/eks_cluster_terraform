@@ -13,10 +13,10 @@ on:
 
 permissions:
   contents: read
-  id-token: write     # 🔐 REQUIRED for OIDC
+  id-token: write     # REQUIRED for OIDC
 
 env:
-  AWS_REGION: ${{ secrets.AWS_REGION }}
+  AWS_REGION: us-east-1   # safer than secret unless you really need dynamic region
 
 jobs:
   jenkins-install:
@@ -32,24 +32,29 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::597918493080:role/github-oidc-selfhosted-role
-          aws-region: ${{ secrets.AWS_REGION }}
+          aws-region: ${{ env.AWS_REGION }}
 
       - name: Verify AWS Identity
         run: aws sts get-caller-identity
 
-      # 🚀 Install Jenkins on Ubuntu Runner
+      # 🚀 Install Jenkins (Ubuntu 24.04 FIXED VERSION)
       - name: Install Jenkins
         run: |
+          set -e
+
           sudo apt update -y
-          sudo apt install -y fontconfig openjdk-17-jre curl
+          sudo apt install -y fontconfig openjdk-17-jre curl gnupg
 
-          # Add Jenkins repo (modern method)
-          curl -fsSL https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key | \
-            sudo tee /usr/share/keyrings/jenkins-keyring.asc > /dev/null
+          # Create keyrings dir (required for ubuntu 24.04 runners)
+          sudo mkdir -p /etc/apt/keyrings
 
-          echo "deb [signed-by=/usr/share/keyrings/jenkins-keyring.asc] \
-          https://pkg.jenkins.io/debian-stable binary/" | \
-          sudo tee /etc/apt/sources.list.d/jenkins.list > /dev/null
+          # Add Jenkins GPG key
+          curl -fsSL https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key \
+            | sudo gpg --dearmor -o /etc/apt/keyrings/jenkins.gpg
+
+          # Add Jenkins repo
+          echo "deb [signed-by=/etc/apt/keyrings/jenkins.gpg] https://pkg.jenkins.io/debian-stable binary/" \
+            | sudo tee /etc/apt/sources.list.d/jenkins.list > /dev/null
 
           sudo apt update -y
           sudo apt install -y jenkins
@@ -62,7 +67,7 @@ jobs:
 
       - name: Jenkins Version
         run: |
-          sleep 20
+          sleep 25
           jenkins --version || sudo jenkins --version
 
       - name: Check Jenkins Service Status
