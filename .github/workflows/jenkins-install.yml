@@ -37,34 +37,38 @@ jobs:
       - name: Verify AWS Identity
         run: aws sts get-caller-identity
 
-      # 📝 Create Jenkins.sh file dynamically
+      # 📝 Create Jenkins.sh file dynamically (FIXED VERSION)
       - name: Create Jenkins.sh
         run: |
           cat << 'EOF' > Jenkins.sh
           #!/bin/bash
+          set -e
 
-          # Update packages
+          echo "Updating packages..."
           sudo apt update -y
 
-          # Install OpenJDK 17 JRE Headless
-          sudo apt install openjdk-17-jre-headless -y
+          echo "Installing Java and required tools..."
+          sudo apt install -y openjdk-17-jre-headless curl gnupg ca-certificates
 
-          # Download Jenkins GPG key
-          sudo wget -O /usr/share/keyrings/jenkins-keyring.asc \
-            https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key
+          echo "Creating keyrings directory..."
+          sudo mkdir -p /etc/apt/keyrings
 
-          # Add Jenkins repository
-          echo deb [signed-by=/usr/share/keyrings/jenkins-keyring.asc] \
-            https://pkg.jenkins.io/debian-stable binary/ | sudo tee \
-            /etc/apt/sources.list.d/jenkins.list > /dev/null
+          echo "Adding Jenkins GPG key..."
+          curl -fsSL https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key \
+            | sudo gpg --dearmor -o /etc/apt/keyrings/jenkins.gpg
 
-          # Update repositories
-          sudo apt-get update -y
+          echo "Adding Jenkins repository..."
+          echo "deb [signed-by=/etc/apt/keyrings/jenkins.gpg] https://pkg.jenkins.io/debian-stable binary/" \
+            | sudo tee /etc/apt/sources.list.d/jenkins.list > /dev/null
 
-          # Install Jenkins
-          sudo apt-get install jenkins -y
+          echo "Updating apt sources..."
+          sudo apt update -y
 
-          # Start Jenkins
+          echo "Installing Jenkins..."
+          sudo apt install -y jenkins
+
+          echo "Starting Jenkins..."
+          sudo systemctl daemon-reload
           sudo systemctl enable jenkins
           sudo systemctl start jenkins
           EOF
@@ -73,8 +77,7 @@ jobs:
 
       # 🚀 Run Jenkins Installation Script
       - name: Run Jenkins.sh
-        run: |
-          bash Jenkins.sh
+        run: bash Jenkins.sh
 
       # 🔎 Check Jenkins Version
       - name: Jenkins Version
