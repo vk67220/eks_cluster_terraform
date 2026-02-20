@@ -1,0 +1,59 @@
+name: Jenkins Installation on Ubuntu Runner
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write     # 🔐 REQUIRED for OIDC
+
+jobs:
+  jenkins-install:
+    runs-on: ubuntu-latest
+
+    env:
+      AWS_REGION: ${{ secrets.AWS_REGION }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 🔐 Configure AWS via OIDC
+      - name: Configure AWS Credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::597918493080:role/github-oidc-selfhosted-role
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Verify AWS Identity
+        run: aws sts get-caller-identity
+
+      # 🚀 Install Jenkins on Ubuntu (Runner)
+      - name: Install Jenkins
+        run: |
+          sudo apt update -y
+          sudo apt install -y fontconfig openjdk-17-jre
+
+          # Add Jenkins Repo (NEW METHOD - no apt-key)
+          curl -fsSL https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key | \
+            sudo tee /usr/share/keyrings/jenkins-keyring.asc > /dev/null
+
+          echo deb [signed-by=/usr/share/keyrings/jenkins-keyring.asc] \
+            https://pkg.jenkins.io/debian-stable binary/ | \
+            sudo tee /etc/apt/sources.list.d/jenkins.list > /dev/null
+
+          sudo apt update -y
+          sudo apt install -y jenkins
+
+      - name: Start Jenkins service
+        run: |
+          sudo systemctl enable jenkins
+          sudo systemctl start jenkins
+
+      - name: Jenkins Version
+        run: |
+          sleep 20
+          jenkins --version || sudo jenkins --version
+
+      - name: Check Jenkins Service Status
+        run: sudo systemctl status jenkins --no-pager
