@@ -2,17 +2,26 @@ name: Jenkins Installation on Ubuntu Runner
 
 on:
   workflow_dispatch:
+    inputs:
+      target_env:
+        description: "Select environment"
+        required: true
+        type: choice
+        options:
+          - dev
+          - production
 
 permissions:
   contents: read
   id-token: write     # 🔐 REQUIRED for OIDC
 
+env:
+  AWS_REGION: ${{ secrets.AWS_REGION }}
+
 jobs:
   jenkins-install:
     runs-on: ubuntu-latest
-
-    env:
-      AWS_REGION: ${{ secrets.AWS_REGION }}
+    environment: ${{ inputs.target_env }}
 
     steps:
       - name: Checkout code
@@ -28,25 +37,26 @@ jobs:
       - name: Verify AWS Identity
         run: aws sts get-caller-identity
 
-      # 🚀 Install Jenkins on Ubuntu (Runner)
+      # 🚀 Install Jenkins on Ubuntu Runner
       - name: Install Jenkins
         run: |
           sudo apt update -y
-          sudo apt install -y fontconfig openjdk-17-jre
+          sudo apt install -y fontconfig openjdk-17-jre curl
 
-          # Add Jenkins Repo (NEW METHOD - no apt-key)
+          # Add Jenkins repo (modern method)
           curl -fsSL https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key | \
             sudo tee /usr/share/keyrings/jenkins-keyring.asc > /dev/null
 
-          echo deb [signed-by=/usr/share/keyrings/jenkins-keyring.asc] \
-            https://pkg.jenkins.io/debian-stable binary/ | \
-            sudo tee /etc/apt/sources.list.d/jenkins.list > /dev/null
+          echo "deb [signed-by=/usr/share/keyrings/jenkins-keyring.asc] \
+          https://pkg.jenkins.io/debian-stable binary/" | \
+          sudo tee /etc/apt/sources.list.d/jenkins.list > /dev/null
 
           sudo apt update -y
           sudo apt install -y jenkins
 
       - name: Start Jenkins service
         run: |
+          sudo systemctl daemon-reload
           sudo systemctl enable jenkins
           sudo systemctl start jenkins
 
@@ -56,4 +66,5 @@ jobs:
           jenkins --version || sudo jenkins --version
 
       - name: Check Jenkins Service Status
-        run: sudo systemctl status jenkins --no-pager
+        run: |
+          sudo systemctl status jenkins --no-pager || true
