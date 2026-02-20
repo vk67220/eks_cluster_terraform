@@ -1,4 +1,4 @@
-name: Jenkins Installation on Ubuntu Runner
+name: Jenkins Installation using Jenkins.sh
 
 on:
   workflow_dispatch:
@@ -13,10 +13,10 @@ on:
 
 permissions:
   contents: read
-  id-token: write     # REQUIRED for OIDC
+  id-token: write
 
 env:
-  AWS_REGION: us-east-1   # safer than secret unless you really need dynamic region
+  AWS_REGION: us-east-1
 
 jobs:
   jenkins-install:
@@ -37,39 +37,50 @@ jobs:
       - name: Verify AWS Identity
         run: aws sts get-caller-identity
 
-      # 🚀 Install Jenkins (Ubuntu 24.04 FIXED VERSION)
-      - name: Install Jenkins
+      # 📝 Create Jenkins.sh file dynamically
+      - name: Create Jenkins.sh
         run: |
-          set -e
+          cat << 'EOF' > Jenkins.sh
+          #!/bin/bash
 
+          # Update packages
           sudo apt update -y
-          sudo apt install -y fontconfig openjdk-17-jre curl gnupg
 
-          # Create keyrings dir (required for ubuntu 24.04 runners)
-          sudo mkdir -p /etc/apt/keyrings
+          # Install OpenJDK 17 JRE Headless
+          sudo apt install openjdk-17-jre-headless -y
 
-          # Add Jenkins GPG key
-          curl -fsSL https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key \
-            | sudo gpg --dearmor -o /etc/apt/keyrings/jenkins.gpg
+          # Download Jenkins GPG key
+          sudo wget -O /usr/share/keyrings/jenkins-keyring.asc \
+            https://pkg.jenkins.io/debian-stable/jenkins.io-2023.key
 
-          # Add Jenkins repo
-          echo "deb [signed-by=/etc/apt/keyrings/jenkins.gpg] https://pkg.jenkins.io/debian-stable binary/" \
-            | sudo tee /etc/apt/sources.list.d/jenkins.list > /dev/null
+          # Add Jenkins repository
+          echo deb [signed-by=/usr/share/keyrings/jenkins-keyring.asc] \
+            https://pkg.jenkins.io/debian-stable binary/ | sudo tee \
+            /etc/apt/sources.list.d/jenkins.list > /dev/null
 
-          sudo apt update -y
-          sudo apt install -y jenkins
+          # Update repositories
+          sudo apt-get update -y
 
-      - name: Start Jenkins service
-        run: |
-          sudo systemctl daemon-reload
+          # Install Jenkins
+          sudo apt-get install jenkins -y
+
+          # Start Jenkins
           sudo systemctl enable jenkins
           sudo systemctl start jenkins
+          EOF
 
+          chmod +x Jenkins.sh
+
+      # 🚀 Run Jenkins Installation Script
+      - name: Run Jenkins.sh
+        run: |
+          bash Jenkins.sh
+
+      # 🔎 Check Jenkins Version
       - name: Jenkins Version
         run: |
           sleep 25
           jenkins --version || sudo jenkins --version
 
       - name: Check Jenkins Service Status
-        run: |
-          sudo systemctl status jenkins --no-pager || true
+        run: sudo systemctl status jenkins --no-pager || true
